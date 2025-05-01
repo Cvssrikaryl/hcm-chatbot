@@ -27,7 +27,7 @@ if knowledge_base == "Sales & Marketing":
 if knowledge_base == "Operations":
     AZURE_COGNITIVE_SEARCH_SERVICE_NAME = "hcm-ai-search"
     AZURE_COGNITIVE_SEARCH_INDEX_NAME = "hcmindex"
-    AZURE_COGNITIVE_SEARCH_API_KEY_OP = os.getenv("AZURE_COGNITIVE_SEARCH_API_KEY_Operations")
+    AZURE_COGNITIVE_SEARCH_API_KEY_OP = os.getenv("AZURE_COGNITIVE_SEARCH_API_KEY_OPERATIONS")
     AZURE_COGNITIVE_SEARCH_ENDPOINT = "https://hcm-ai-search.search.windows.net"
     azure_credential = AzureKeyCredential(AZURE_COGNITIVE_SEARCH_API_KEY_OP)
 
