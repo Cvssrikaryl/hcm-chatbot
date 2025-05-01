@@ -20,16 +20,16 @@ knowledge_base = st.sidebar.selectbox("Choose Knowledge Base", ["Sales & Marketi
 if knowledge_base == "Sales & Marketing":
     AZURE_COGNITIVE_SEARCH_INDEX_NAME = "hcmaisearch"
     AZURE_COGNITIVE_SEARCH_SERVICE_NAME = "hcmaisearch"
-    AZURE_COGNITIVE_SEARCH_API_KEY = os.getenv("AZURE_COGNITIVE_SEARCH_API_KEY_SM")
+    AZURE_COGNITIVE_SEARCH_API_KEY_SM = os.getenv("AZURE_COGNITIVE_SEARCH_API_KEY_SM")
     AZURE_COGNITIVE_SEARCH_ENDPOINT = "https://hcmaisearch.search.windows.net"
-    azure_credential = AzureKeyCredential(AZURE_COGNITIVE_SEARCH_API_KEY)
+    azure_credential = AzureKeyCredential(AZURE_COGNITIVE_SEARCH_API_KEY_SM)
 
 if knowledge_base == "Operations":
     AZURE_COGNITIVE_SEARCH_SERVICE_NAME = "hcm-ai-search"
     AZURE_COGNITIVE_SEARCH_INDEX_NAME = "hcmindex"
-    AZURE_COGNITIVE_SEARCH_API_KEY = os.getenv("AZURE_COGNITIVE_SEARCH_API_KEY_Operations")
+    AZURE_COGNITIVE_SEARCH_API_KEY_OP = os.getenv("AZURE_COGNITIVE_SEARCH_API_KEY_Operations")
     AZURE_COGNITIVE_SEARCH_ENDPOINT = "https://hcm-ai-search.search.windows.net"
-    azure_credential = AzureKeyCredential(AZURE_COGNITIVE_SEARCH_API_KEY)
+    azure_credential = AzureKeyCredential(AZURE_COGNITIVE_SEARCH_API_KEY_OP)
 
 
 
