@@ -1,5 +1,5 @@
-streamlit>=1.32
+streamlit==1.24.0
 openai>=1.13.3
-azure-core>=1.29.5
-azure-search-documents>=11.4.0
+azure-core==1.33.0
+azure-search-documents==11.4.0b11
 python-dotenv>=1.0.1
