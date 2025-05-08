@@ -15,14 +15,14 @@ from openai import AzureOpenAI
 
 load_dotenv()
 
-knowledge_base = st.sidebar.selectbox("Choose Knowledge Base", ["Sales & Marketing", "Operations"])
+knowledge_base = st.sidebar.selectbox("Choose Knowledge Base", ["Sales & Marketing", "Operations","ClientOperations"])
 
 if knowledge_base == "Sales & Marketing":
-    AZURE_COGNITIVE_SEARCH_INDEX_NAME = "hcmaisearch"
     AZURE_COGNITIVE_SEARCH_SERVICE_NAME = "hcmaisearch"
-    AZURE_COGNITIVE_SEARCH_API_KEY_SM = os.getenv("AZURE_COGNITIVE_SEARCH_API_KEY_SM")
+    AZURE_COGNITIVE_SEARCH_INDEX_NAME = "hcmaisearchsm"
+    AZURE_COGNITIVE_SEARCH_API_KEY = os.getenv("AZURE_COGNITIVE_SEARCH_API_KEY_SM")
     AZURE_COGNITIVE_SEARCH_ENDPOINT = "https://hcmaisearch.search.windows.net"
-    azure_credential = AzureKeyCredential(AZURE_COGNITIVE_SEARCH_API_KEY_SM)
+    azure_credential = AzureKeyCredential(AZURE_COGNITIVE_SEARCH_API_KEY)
 
 if knowledge_base == "Operations":
     AZURE_COGNITIVE_SEARCH_SERVICE_NAME = "hcm-ai-search"
@@ -30,6 +30,21 @@ if knowledge_base == "Operations":
     AZURE_COGNITIVE_SEARCH_API_KEY_OP = os.getenv("AZURE_COGNITIVE_SEARCH_API_KEY_OPERATIONS")
     AZURE_COGNITIVE_SEARCH_ENDPOINT = "https://hcm-ai-search.search.windows.net"
     azure_credential = AzureKeyCredential(AZURE_COGNITIVE_SEARCH_API_KEY_OP)
+
+if knowledge_base == "ClientOperations":
+    AZURE_COGNITIVE_SEARCH_SERVICE_NAME = "hcmaisearch"
+    AZURE_COGNITIVE_SEARCH_INDEX_NAME = "hcmaisearchco"
+    AZURE_COGNITIVE_SEARCH_API_KEY = os.getenv("AZURE_COGNITIVE_SEARCH_API_KEY_SM")
+    AZURE_COGNITIVE_SEARCH_ENDPOINT = "https://hcmaisearch.search.windows.net"
+    azure_credential = AzureKeyCredential(AZURE_COGNITIVE_SEARCH_API_KEY)
+
+
+# Determine the appropriate vector field name based on the selected knowledge base
+if knowledge_base == "Operations":
+    VECTOR_FIELD_NAME = "vector"
+else:
+    VECTOR_FIELD_NAME = "embedding"
+
 
 
 
@@ -171,39 +186,45 @@ def generate_query_for_retriver(user_query = " ",messages = [],model= "gpt35turb
     return response
     
     
-class retrive_similiar_docs : 
-
-    def __init__(self,query = " ", retrive_fields = ["actual_content", "metadata"],
-                      ):
+class retrive_similiar_docs: 
+    def __init__(self, query=" ", retrive_fields=["actual_content", "metadata"], vector_field="embedding"):
         if query:
             self.query = query
-
-        self.search_client = SearchClient(AZURE_COGNITIVE_SEARCH_ENDPOINT, AZURE_COGNITIVE_SEARCH_INDEX_NAME, azure_credential)
+        self.search_client = SearchClient(
+            AZURE_COGNITIVE_SEARCH_ENDPOINT, 
+            AZURE_COGNITIVE_SEARCH_INDEX_NAME, 
+            azure_credential
+        )
         self.retrive_fields = retrive_fields
-    
-    def text_search(self,top = 2):
-        results = self.search_client.search(search_text= self.query,
-                                select=self.retrive_fields,top=top)
-        
+        self.vector_field = vector_field  # new addition
+
+    def text_search(self, top=2):
+        results = self.search_client.search(
+            search_text=self.query,
+            select=self.retrive_fields,
+            top=top
+        )
         return results
-        
 
-    def pure_vector_search(self, k = 2, vector_field = 'vector',query_embedding = []):
-
-        vector_query = RawVectorQuery(vector=query_embedding, k=k, fields=vector_field)
-
-        results = self.search_client.search( search_text=None,  vector_queries= [vector_query],
-                                            select=self.retrive_fields)
-
+    def pure_vector_search(self, k=2, query_embedding=[]):
+        vector_query = RawVectorQuery(vector=query_embedding, k=k, fields=self.vector_field)
+        results = self.search_client.search(
+            search_text=None,
+            vector_queries=[vector_query],
+            select=self.retrive_fields
+        )
         return results
-        
-    def hybrid_search(self,top = 2, k = 2,vector_field = "vector",query_embedding = []):
-        
-        vector_query = RawVectorQuery(vector=query_embedding, k=k, fields=vector_field)
-        results = self.search_client.search(search_text=self.query,  vector_queries= [vector_query],
-                                                select=self.retrive_fields,top=top)  
 
+    def hybrid_search(self, top=2, k=2, query_embedding=[]):
+        vector_query = RawVectorQuery(vector=query_embedding, k=k, fields=self.vector_field)
+        results = self.search_client.search(
+            search_text=self.query,
+            vector_queries=[vector_query],
+            select=self.retrive_fields,
+            top=top
+        )
         return results
+
 
 
 
@@ -216,7 +237,8 @@ def get_similiar_content(user_query = " ",
 
     #print("Generating query for embedding...")
     #embedding_query = get_query_for_embedding(user_query=user_query)
-    retrive_docs = retrive_similiar_docs(query = user_query)
+    retrive_docs = retrive_similiar_docs(query = user_query, vector_field=VECTOR_FIELD_NAME)
+
 
     if search_type == "text":
         start = time.time()
@@ -277,33 +299,47 @@ def get_similiar_content(user_query = " ",
 
 system_message = """
 
-You are a chatbot designed to answer user queries strictly related to documents stored in the HCM Knowledgebase."
-You must act as a precise and intelligent assistant, providing accurate responses exclusively based on the provided text extracts.
+You are a chatbot designed to answer user queries strictly related to documents stored in the HCM Knowledgebase, with a focus on client-specific context.
 
-You are required to:
+Your behavior must follow these rules:
+
+Client Identification and Targeted Retrieval
+
+Always begin by identifying the client, organization, or entity mentioned in the user's question (e.g., "Garnet Health", "billings clinic" etc..).
+
+Use this client name to narrow your retrieval scope to only those documents that are related to or mention the identified client.
+
+If no client is mentioned, perform a general retrieval across all available documents.
+
+Answering Guidelines
 
 Answer only the specific question posed by the user.
 
-Remain concise, without including any additional commentary or elaboration beyond what the user asked.
+Be concise and direct, without providing extra commentary or unsolicited elaboration.
 
-Generate responses solely from the content in the provided extracts.
+Base your responses strictly on the content available in the provided document extracts.
 
-If there is insufficient information available in the extracts to answer a question, respond with:
+No Fabrication or Assumption
+
+If the information required to answer the question is not found in the document extracts, respond exactly with:
+
 "I don't have information to answer that question."
-You are not permitted to fabricate, infer, or assume any information beyond what is explicitly contained in the extracts.
 
-If the user's message is a greeting such as "Hi," "Hello," "Thanks," or similar, respond warmly, express gratitude, and ask how you may assist further.
+Do not infer, assume, or fabricate answers under any circumstances.
 
-When a response uses content from the extracts:
+Source Referencing
 
-You must reference the source by inserting at least two newline characters followed by the source in square brackets in this format:
-"\n\n [Source: {filename} ]"
+When document content is used in the response, insert two newlines followed by the filename in square brackets:
 
-Only provide the source reference if the answer directly uses information from the extracts. If no extract content was used, omit the source reference.
+"\n\n[Source: {filename}]"
 
-Punctuation or special characters in the user’s question (e.g., {? , .? , .}) must not alter the meaning or nature of the response.
+Only provide this citation if the answer directly uses content from a document. Omit if not applicable.
 
-Strict compliance with these instructions is mandatory at all times.
+Handling Greetings and Politeness
+
+If the user greets (e.g., "Hi", "Hello") or thanks you, respond politely and ask how you may assist further. Do not include a document citation in such cases.
+
+Strict adherence to these rules is required at all times. Do not deviate.
     
 """
 
